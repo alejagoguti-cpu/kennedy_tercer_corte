@@ -329,6 +329,15 @@ footer{padding:28px var(--gutter);border-top:1px solid var(--linea);display:flex
 .an .capas-cab h2 { font-size: var(--t-1); line-height: .92; margin: 0; }
 .an .capas-cab .num { font: 400 calc(var(--t-1) * .5) var(--titulo); color: var(--acento); margin: 0 0 8px; }
 .an .capas-cab p { margin-top: 24px; color: var(--tinta-2); font-size: .8rem; max-width: 34ch; }
+.an #indicadores { position: relative; min-height: max(100vh, 720px); padding: 0; overflow: clip; border-top: 1px solid var(--linea); }
+.an #indicadores.abierto .capas-cab { opacity: 0; transform: translateX(-24px); pointer-events: none; }
+.an #indicadores.abierto .pila-marco { transform: translateX(calc(min(420px, 92vw) * -.5 - 24px)); }
+.an .ficha-capa .etq{font:400 .74rem var(--dato);color:var(--tinta-3);letter-spacing:.08em;margin:0 30px 10px 0}
+.an .ind-planta{margin:18px 0 6px;position:relative}
+.an .ind-planta img{display:block;width:100%;background:#000}
+.an .ind-planta figcaption{margin-top:6px;font-size:.74rem;color:var(--tinta-3)}
+.an .ind-rampa{height:8px;margin-top:18px}
+.an .ind-extremos{display:flex;justify-content:space-between;font:400 .7rem var(--dato);color:var(--tinta-3);margin-top:4px}
 .an #capas.abierto .capas-cab { opacity: 0; transform: translateX(-24px); pointer-events: none; }
 .an #capas.abierto .pila-marco { transform: translateX(calc(min(420px, 92vw) * -.5 - 24px)); }
 .an .pila-nota { position: absolute; left: 40px; bottom: 24px; z-index: 5; max-width: 52ch; font-size: .74rem; color: var(--tinta-3); }
@@ -400,7 +409,7 @@ footer{padding:28px var(--gutter);border-top:1px solid var(--linea);display:flex
   <nav aria-label="Secciones">
     <a href="#problema">Problema</a>
     <a href="#lectura-cab">Capas</a>
-    <a href="#indicadores">Picos</a>
+    <a href="#indicadores">Indicadores</a>
     <a href="#cruces">Cruces</a>
     <a href="#plan">Plan</a>
     <a href="#simulador">Simulador</a>
@@ -496,43 +505,32 @@ footer{padding:28px var(--gutter);border-top:1px solid var(--linea);display:flex
     </div>
     <div id="relieve-3d"><span class="norte">N<br>↑</span><div id="picos" class="picos"></div><div class="tip-relieve" id="tip-relieve"></div><p class="estado-relieve" id="relieve-estado"></p><div class="rampa" id="rampa"></div></div>
   </section>
+
+  <section id="indicadores" data-nombre="Indicadores" aria-label="Indicadores en picos">
+    <div class="capas-fijo">
+      <div class="capas-cab"><p class="num">09</p><h2>Indicadores en picos</h2><p>Cada estrato es un indicador sintetizado a partir de las capas. Pase el cursor para levantar sus picos; haga clic para ver su lámina y compararla con la de 2020.</p>
+        <p class="nota" id="ind-progreso" style="margin-top:12px">Levantando los indicadores…</p></div>
+      <p class="pila-nota"><span style="color:var(--acento)">09</span> indicadores sobre el mismo encuadre. Alturas de carácter visual, exageradas: no son una medición.</p>
+      <div class="pila-marco"><div id="pila-ind" class="pila-iso" aria-label="Pila isométrica de los 9 indicadores"></div></div>
+    </div>
+    <aside class="ficha-capa" id="ficha-ind" aria-live="polite"></aside>
+  </section>
 </div>
 
-<!-- 03 PICOS -->
-<section id="indicadores" class="capitulo" data-nombre="Picos">
-  <div class="cap-cab envoltura">
-    <div>
-      <p class="etiqueta aparece"><b>03</b> · Indicadores en 3D</p>
-      <h2 class="aparece">Los picos sobre el territorio.</h2>
-    </div>
-    <div class="aparece">
-      <p class="lead">Cada indicador se levanta como una superficie sobre los edificios y el terreno de Kennedy. Compare <strong>el estado actual con el anterior a 2020</strong>, apílelos en capas o recórralos uno por uno.</p>
-      <ul class="cap-claves">
-        <li><b>Actual · Antes 2020</b>los dos momentos, o ambos lado a lado</li>
-        <li><b>Mostrar todos</b>la pila de indicadores, con separación ajustable</li>
-        <li><b>Superficie o peludo</b>dos maneras de leer la intensidad</li>
-      </ul>
-    </div>
-  </div>
-  <div class="cap-marco" data-src="https://anasoficasca-code.github.io/picos/" data-titulo="Indicadores 3D de Kennedy">
-    <div class="cap-carga"><span>Levantando los indicadores</span><i></i></div>
-  </div>
-</section>
-
-<!-- 04 CRUCES -->
+<!-- 03 CRUCES -->
 <section id="cruces" data-nombre="Cruces">
   <div class="envoltura">
-    <p class="etiqueta aparece"><b>04</b> · Cruces entre capas</p>
+    <p class="etiqueta aparece"><b>03</b> · Cruces entre capas</p>
     <h2 class="aparece">Una capa da la altura, otra el color.</h2>
     <p class="lead aparece">Cada par levanta el relieve con la primera capa y lo viste con la segunda. Son <strong>hipótesis para comprobar</strong> con datos y en campo, no conclusiones.</p>
     <div class="cruces" id="listaCruces"></div>
   </div>
 </section>
 
-<!-- 05 PLAN -->
+<!-- 04 PLAN -->
 <section id="plan" data-nombre="Plan">
   <div class="envoltura">
-    <p class="etiqueta aparece"><b>05</b> · Plan</p>
+    <p class="etiqueta aparece"><b>04</b> · Plan</p>
     <h2 class="aparece">Cuatro convenciones para el borde.</h2>
     <p class="lead aparece">El plan no es una forma final: son cuatro acuerdos entre actores humanos y no humanos que se activan sobre la lectura del territorio y se ponen a prueba en el simulador.</p>
     <div class="convenciones aparece">
@@ -544,10 +542,10 @@ footer{padding:28px var(--gutter);border-top:1px solid var(--linea);display:flex
   </div>
 </section>
 
-<!-- 06 SIMULADOR -->
+<!-- 05 SIMULADOR -->
 <section id="simulador" data-nombre="Simulador">
   <div class="envoltura">
-    <p class="etiqueta aparece"><b>06</b> · Modelamiento dinámico y simulación</p>
+    <p class="etiqueta aparece"><b>05</b> · Modelamiento dinámico y simulación</p>
     <h2 class="aparece">El simulador de Kennedy.</h2>
     <p class="lead aparece">Maqueta 3D sobre la malla fotorrealista de Google, con tráfico, peatones, aves y los actores de las cuatro convenciones moviéndose sobre las vías reales según la sintaxis espacial.</p>
 
@@ -572,10 +570,10 @@ footer{padding:28px var(--gutter);border-top:1px solid var(--linea);display:flex
   </div>
 </section>
 
-<!-- 07 CIERRE -->
+<!-- 06 CIERRE -->
 <section id="cierre" data-nombre="Cierre">
   <div class="envoltura">
-    <p class="etiqueta aparece"><b>07</b> · Cierre</p>
+    <p class="etiqueta aparece"><b>06</b> · Cierre</p>
     <h2 class="aparece">Leer las capas juntas para decidir dónde intervenir.</h2>
     <p class="lead aparece">Las dieciocho capas dicen dónde está la presión; el simulador permite probar qué pasa si los barrios se apropian del borde. El siguiente paso es contrastar cada cruce con aforos, muestreos y conversaciones en campo.</p>
   </div>
@@ -788,6 +786,8 @@ try {
   api = await iniciarLectura(document.getElementById('lectura'), INFO, (p) => { prog.textContent = `Leyendo los mapas… ${Math.round(p * 100)} %`; });
   document.getElementById('lectura').classList.add('an-lista'); prog.remove();
   pendientes.forEach((f) => f());
+  const pi = document.getElementById('ind-progreso');
+  import('./indicadores.js?v=1').then(({ iniciarIndicadores }) => iniciarIndicadores(document.getElementById('indicadores'), (p) => { pi.textContent = `Levantando los indicadores… ${Math.round(p * 100)} %`; })).then(() => pi.remove()).catch((e) => { console.error('indicadores', e); pi.textContent = 'No se pudieron cargar los indicadores.'; });
 } catch (err) {
   console.error('lectura territorial', err);
   prog.textContent = 'No se pudo abrir la vista 3D en este navegador.';

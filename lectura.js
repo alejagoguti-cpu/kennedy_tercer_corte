@@ -67,14 +67,23 @@ const capa = Object.fromEntries(D.capas.map((c) => [c.id, c]));
 /* ---------- índices exploratorios (pesos iguales; no son índices validados) ---------- */
 const v0 = (c, k) => Math.max(0, c.val(k));
 const ou = (...a) => 1 - a.reduce((p, x) => p * (1 - x), 1);
+const media = (...a) => a.reduce((p, x) => p + x, 0) / a.length;
+// usa: capas que entran; de: índices que entran. Pesos iguales: índices exploratorios, no validados.
 const IND = {
-  E: { nombre: 'Estrés ambiental', formula: 'E = media(térmica, NDBI, 1 − NDMI)', texto: 'Donde la superficie es caliente, impermeable y seca a la vez.', f: (k) => (v0(capa.termica, k) + v0(capa.ndbi, k) + (1 - v0(capa.ndmi, k))) / 3 },
-  S: { nombre: 'Presión social', formula: 'S = √(E · densidad)', texto: 'Alta solo donde el estrés ambiental coincide con mucha gente.', f: (k) => Math.sqrt(IND.E.v[k] * v0(capa.densidad, k)) },
-  M: { nombre: 'Riesgo de movilidad', formula: 'M = √(malla vial · accidentalidad)', texto: 'Los ejes arteriales donde además se concentran los siniestros.', f: (k) => Math.sqrt(v0(capa.malla_vial, k) * v0(capa.accidentalidad, k)) },
-  V: { nombre: 'Valor ecológico', formula: 'V = media(NDVI, clorofila, EEP)', texto: 'Dónde se concentra la vegetación activa y el suelo de la estructura ecológica.', f: (k) => (v0(capa.ndvi, k) + v0(capa.chl, k) + v0(capa.eep_parques, k)) / 3 },
-  C: { nombre: 'Convergencia', formula: 'C = S ⊕ M ⊕ √(E · V)', texto: 'Dónde el estrés toca a la vez gente, calles y vida. Cualquiera de las tres suma; ninguna resta.', f: (k) => ou(IND.S.v[k], IND.M.v[k], Math.sqrt(IND.E.v[k] * IND.V.v[k])) },
+  E: { nombre: 'Estrés ambiental', formula: 'media(térmica, NDBI, 1 − NDMI)', texto: 'Donde la superficie es caliente, impermeable y seca a la vez.', usa: ['termica', 'ndbi', 'ndmi'], f: (k) => media(v0(capa.termica, k), v0(capa.ndbi, k), 1 - v0(capa.ndmi, k)) },
+  V: { nombre: 'Valor ecológico', formula: 'media(NDVI, clorofila, EEP)', texto: 'Dónde se concentra la vegetación activa y el suelo de la estructura ecológica.', usa: ['ndvi', 'chl', 'eep_parques'], f: (k) => media(v0(capa.ndvi, k), v0(capa.chl, k), v0(capa.eep_parques, k)) },
+  A: { nombre: 'Contaminación', formula: 'media(CO, CH₄, UWQV)', texto: 'Aire y agua cargados: monóxido, metano y la carga del agua del humedal.', usa: ['co', 'ch4', 'uwqv'], f: (k) => media(v0(capa.co, k), v0(capa.ch4, k), v0(capa.uwqv, k)) },
+  P: { nombre: 'Presión productiva', formula: 'media(comercio, industria)', texto: 'Dónde se concentran la actividad comercial y la industria pesada.', usa: ['comercio', 'industria'], f: (k) => media(v0(capa.comercio, k), v0(capa.industria, k)) },
+  S: { nombre: 'Presión social', formula: '√(E · densidad)', texto: 'Alta solo donde el estrés ambiental coincide con mucha gente.', usa: ['densidad'], de: ['E'], f: (k) => Math.sqrt(IND.E.v[k] * v0(capa.densidad, k)) },
+  M: { nombre: 'Riesgo de movilidad', formula: '√(malla vial · accidentalidad)', texto: 'Los ejes arteriales donde además se concentran los siniestros.', usa: ['malla_vial', 'accidentalidad'], f: (k) => Math.sqrt(v0(capa.malla_vial, k) * v0(capa.accidentalidad, k)) },
+  K: { nombre: 'Capacidad comunitaria', formula: 'media(colegios, ed. sup., JAC, equip.)', texto: 'Dónde hay instituciones y organización barrial para sostener una propuesta.', usa: ['colegios', 'educacion_superior', 'jac', 'equipamientos'], f: (k) => media(v0(capa.colegios, k), v0(capa.educacion_superior, k), v0(capa.jac, k), v0(capa.equipamientos, k)) },
+  C: { nombre: 'Convergencia de presión', formula: 'S ⊕ M ⊕ √(E · V) ⊕ √(A · P)', texto: 'Dónde la presión toca a la vez gente, calles, vida y aire. Cualquier señal suma; su ausencia no resta.', de: ['S', 'M', 'E', 'V', 'A', 'P'], f: (k) => ou(IND.S.v[k], IND.M.v[k], Math.sqrt(IND.E.v[k] * IND.V.v[k]), Math.sqrt(IND.A.v[k] * IND.P.v[k])) },
+  O: { nombre: 'Oportunidad', formula: '√(V · K)', texto: 'Alta solo donde el valor ecológico y la capacidad comunitaria coinciden: dónde una convención puede empezar.', de: ['V', 'K'], f: (k) => Math.sqrt(IND.V.v[k] * IND.K.v[k]) },
 };
-for (const id of ['E', 'S', 'M', 'V', 'C']) { const I = IND[id]; I.id = id; I.v = new Float32Array(N); for (let k = 0; k < N; k++) I.v[k] = I.f(k); }
+const ORDEN_IND = ['E', 'V', 'A', 'P', 'S', 'M', 'K', 'C', 'O'];
+for (const id of ORDEN_IND) { const I = IND[id]; I.id = id; I.v = new Float32Array(N); for (let k = 0; k < N; k++) I.v[k] = I.f(k);
+  // cada índice se reescala 0–1 entre sus percentiles 2 y 98 para que sea comparable
+  const ord = Float32Array.from(I.v).sort(); const lo = ord[Math.floor(N * 0.02)]; const hi = ord[Math.floor(N * 0.98)]; for (let k = 0; k < N; k++) I.v[k] = clamp01((I.v[k] - lo) / Math.max(1e-6, hi - lo)); }
 
 /* ---------- lienzos de capas e índices ---------- */
 const lienzoDe = (valor, rampa) => {
@@ -86,76 +95,97 @@ const lienzoDe = (valor, rampa) => {
 D.capas.forEach((c) => { c.lienzo = lienzoDe((k) => c.val(k), c.rampa); });
 Object.values(IND).forEach((I) => { I.lienzo = lienzoDe((k) => I.v[k], 'indice'); });
 
-/* ================= pila de capas en 3D: cada ráster con altura donde su valor es mayor ================= */
-const orden = [...D.capas].reverse();
-$('#pila-lista').innerHTML = orden.map((c) => `<li><button data-capa="${c.id}"><em>${c.n}</em>${c.nombre}</button></li>`).join('');
-let pHover = null;
-raiz.querySelectorAll('[data-capa]').forEach((b) => { b.onmouseenter = () => { pHover = b.dataset.capa; }; b.onmouseleave = () => { pHover = null; }; b.onfocus = b.onmouseenter; b.onblur = b.onmouseleave; b.onclick = () => abrirFicha(capa[b.dataset.capa]); });
-const pCont = $('#pila-3d');
-const pRen = new THREE.WebGLRenderer({ antialias: true, alpha: true }); pRen.setPixelRatio(DPR); pCont.append(pRen.domElement);
-const pEsc = new THREE.Scene();
-pEsc.add(new THREE.AmbientLight(0xffffff, 1.15)); const pSol = new THREE.DirectionalLight(0xffffff, 1.1); pSol.position.set(-60, 120, -40); pEsc.add(pSol);
-const pCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -4000, 4000);
-const BW = GW; const BH = GH; const PASO = 2; const SX = Math.ceil(BW / PASO); const SY = Math.ceil(BH / PASO);
-const ALT_BASE = 12; const ALT_HOVER = 44;
-const ELEV = (38 * Math.PI) / 180;
-const DIAG = Math.hypot(BW, BH);
-const ESCALA_PILA = 0.4;
-let giroPila = -0.7;
-const SEP = (DIAG * 0.82 * Math.sin(ELEV) + ALT_HOVER * Math.cos(ELEV) * 0.55) / Math.cos(ELEV) + 6;
-const capas3d = orden.map((c, i) => {
-  const geo = new THREE.PlaneGeometry(BW, BH, SX - 1, SY - 1); geo.rotateX(-Math.PI / 2);
-  const pos = geo.attributes.position; const n = pos.count; const val = new Float32Array(n); const col = new Float32Array(n * 3);
-  for (let v = 0; v < n; v++) {
-    const ix = v % SX; const iy = Math.floor(v / SX); const k = Math.min(GH - 1, iy * PASO) * GW + Math.min(GW - 1, ix * PASO);
-    const t = c.val(k); val[v] = t; const rgb = colorDe(c.rampa, Math.max(0.12, t));
-    col[v * 3] = rgb[0] / 255; col[v * 3 + 1] = rgb[1] / 255; col[v * 3 + 2] = rgb[2] / 255;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const malla = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
-  const borde = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(BW, BH).rotateX(-Math.PI / 2)), new THREE.LineBasicMaterial({ color: 0xd6e6ec, transparent: true, opacity: 0.5 }));
-  const grupo = new THREE.Group(); grupo.add(malla, borde); grupo.userData = { c, i, val, alt: ALT_BASE }; malla.userData.id = c.id;
-  pEsc.add(grupo); return grupo;
-});
-const aplicarAltura = (g, alt) => { const pos = g.children[0].geometry.attributes.position; const val = g.userData.val; for (let v = 0; v < pos.count; v++) pos.setY(v, val[v] * alt); pos.needsUpdate = true; g.children[0].geometry.computeVertexNormals(); };
-capas3d.forEach((g) => aplicarAltura(g, ALT_BASE));
-const ray = new THREE.Raycaster(); const ptr = new THREE.Vector2();
-pRen.domElement.addEventListener('pointermove', (e) => { const r = pRen.domElement.getBoundingClientRect(); ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ptr, pCam); const hit = ray.intersectObjects(capas3d.map((g) => g.children[0]))[0]; pHover = hit ? hit.object.userData.id : null; if (arrastre === null) pRen.domElement.style.cursor = pHover ? 'pointer' : 'grab'; });
-pRen.domElement.addEventListener('pointerleave', () => { pHover = null; });
-let arrastre = null; let movido = 0;
-pRen.domElement.style.touchAction = 'pan-y'; pRen.domElement.style.cursor = 'grab';
-pRen.domElement.addEventListener('pointerdown', (e) => { arrastre = e.clientX; movido = 0; pRen.domElement.setPointerCapture(e.pointerId); pRen.domElement.style.cursor = 'grabbing'; });
-pRen.domElement.addEventListener('pointermove', (e) => { if (arrastre === null) return; const dx = e.clientX - arrastre; arrastre = e.clientX; movido += Math.abs(dx); giroPila += dx * 0.009; });
-const soltar = () => { arrastre = null; pRen.domElement.style.cursor = 'grab'; };
-pRen.domElement.addEventListener('pointerup', soltar); pRen.domElement.addEventListener('pointercancel', soltar);
-pRen.domElement.addEventListener('click', () => { if (pHover && movido < 5) abrirFicha(capa[pHover]); });
-function dibujarPila() {
-  const r = pCont.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;
-  const w = Math.max(1, r.width); const h = Math.max(1, r.height); const vh = Math.max(1, Math.min(innerHeight, h));
-  if (pRen.domElement.width !== Math.round(w * DPR) || pRen.domElement.height !== Math.round(vh * DPR)) pRen.setSize(w, vh, false);
-  const alto = (orden.length - 1) * SEP * Math.cos(ELEV) + BW * Math.sin(ELEV) + ALT_HOVER + 40;
-  const altoPx = Math.round(w * ESCALA_PILA * alto / (DIAG * 1.04));
-  if (Math.abs(pCont.offsetHeight - altoPx) > 2) pCont.style.height = `${altoPx}px`;
-  const mitadH = Math.max(alto * 0.5, (DIAG * 0.52 / ESCALA_PILA) / (w / h));
-  pCam.left = -mitadH * (w / h); pCam.right = mitadH * (w / h); pCam.top = mitadH; pCam.bottom = -mitadH;
-  const offY = Math.max(0, Math.min(h - vh, -r.top)); pCam.setViewOffset(w, h, 0, offY, w, vh);
-  const d = 1600; const cy = -((orden.length - 1) * SEP) / 2 + 20; pCam.position.set(Math.cos(ELEV) * Math.cos(giroPila) * d, cy + Math.sin(ELEV) * d, Math.cos(ELEV) * Math.sin(giroPila) * d); pCam.lookAt(0, cy, 0);
-  raiz.querySelectorAll('[data-capa]').forEach((b) => (b.dataset.capa === pHover ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current')));
-  const ahora = performance.now(); const ia = intro('capas', ahora, 2600);
-  const iSel = pHover ? orden.findIndex((o) => o.id === pHover) : -1;
-  capas3d.forEach((g) => {
-    const { c, i } = g.userData; const sel = c.id === pHover;
-    const ola = pausado || pHover ? 0 : Math.max(0, Math.sin(ahora * 0.0011 - i * 0.55)) ** 6; const meta = sel ? ALT_HOVER : ALT_BASE + ola * 22; const nueva = g.userData.alt + (meta - g.userData.alt) * 0.14;
-    if (Math.abs(nueva - g.userData.alt) > 0.02) { g.userData.alt = nueva; aplicarAltura(g, nueva); }
-    const ic = suave((ia - (orden.length - 1 - i) * 0.04) / 0.4);
-    const flota = pausado ? 0 : Math.sin(ahora * 0.0012 + i * 0.6) * 3.2 + ola * 10;
-    const sube = iSel >= 0 && i < iSel ? 26 : sel ? 6 : 0; g.userData.sube = (g.userData.sube || 0) + (sube - (g.userData.sube || 0)) * 0.14;
-    g.position.y = -i * SEP + flota + g.userData.sube + (1 - ic) * 260;
-    g.visible = ic > 0.01; g.children[0].material.color.setScalar(pHover && !sel ? 0.4 : 1);
-    g.children[1].material.color.set(sel ? 0xff6b4a : 0xd6e6ec); g.children[1].material.opacity = ic * (sel ? 0.95 : 0.25 + 0.4 * ola);
-  });
-  pRen.render(pEsc, pCam);
+/* ================= pila isométrica (como en Salento): un estrato por mapa, el relieve se levanta al activarlo ================= */
+// cada estrato se pre-renderiza una vez en dos imágenes con la misma cámara ortográfica: plano y con relieve
+const orden = [...D.capas]; // 01 abajo … 18 arriba
+const NC = orden.length;
+const IMG_W = 760; const ALTO_REL = 34; // altura visual del valor máximo (exagerada)
+const rCv = document.createElement('canvas');
+const rRen = new THREE.WebGLRenderer({ canvas: rCv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+rRen.setPixelRatio(1); rRen.outputColorSpace = THREE.SRGBColorSpace;
+const rEsc = new THREE.Scene();
+rEsc.add(new THREE.HemisphereLight(0xffffff, 0x223038, 1.25));
+const rSol = new THREE.DirectionalLight(0xffffff, 1.6); rSol.position.set(-80, 140, 60); rEsc.add(rSol);
+const rCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -2000, 2000);
+const AZ = (-38 * Math.PI) / 180; const EL = (33 * Math.PI) / 180;
+rCam.position.set(Math.sin(AZ) * Math.cos(EL) * 500, Math.sin(EL) * 500, Math.cos(AZ) * Math.cos(EL) * 500); rCam.lookAt(0, 0, 0); rCam.updateMatrixWorld();
+// encuadre: las 4 esquinas en el piso y a la altura máxima
+const esquinas = [[-GW / 2, -GH / 2], [GW / 2, -GH / 2], [GW / 2, GH / 2], [-GW / 2, GH / 2]];
+const proy = (x, y, z) => { const v = new THREE.Vector3(x, y, z).applyMatrix4(rCam.matrixWorldInverse); return [v.x, v.y]; };
+const pts = esquinas.flatMap(([x, z]) => [proy(x, 0, z), proy(x, ALTO_REL, z)]);
+const xs = pts.map((p) => p[0]); const ys = pts.map((p) => p[1]);
+const mx = (Math.max(...xs) - Math.min(...xs)) * 0.015;
+rCam.left = Math.min(...xs) - mx; rCam.right = Math.max(...xs) + mx; rCam.top = Math.max(...ys) + mx; rCam.bottom = Math.min(...ys) - mx; rCam.updateProjectionMatrix();
+const RATIO = (rCam.top - rCam.bottom) / (rCam.right - rCam.left);
+const IMG_H = Math.round(IMG_W * RATIO);
+rRen.setSize(IMG_W, IMG_H, false);
+// esquinas del piso en fracción de la imagen (0–1): contorno y zona sensible
+const base = esquinas.map(([x, z]) => { const [px, py] = proy(x, 0, z); return [(px - rCam.left) / (rCam.right - rCam.left), (rCam.top - py) / (rCam.top - rCam.bottom)]; });
+const iDer = base.reduce((b, p, i) => (p[0] > base[b][0] ? i : b), 0); // esquina derecha: de ahí sale la guía al rótulo
+const geoR = new THREE.PlaneGeometry(GW, GH, GW - 1, GH - 1); geoR.rotateX(-Math.PI / 2);
+const posR = geoR.attributes.position;
+const matR = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+const mallaR = new THREE.Mesh(geoR, matR); rEsc.add(mallaR);
+const aFoto = () => new Promise((ok) => rCv.toBlob((b) => ok(URL.createObjectURL(b)), 'image/webp', 0.9));
+for (const c of orden) {
+  const tex = new THREE.Texture(c.img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.needsUpdate = true;
+  matR.map = tex; matR.needsUpdate = true;
+  for (let v = 0; v < posR.count; v++) posR.setY(v, 0); posR.needsUpdate = true; geoR.computeVertexNormals();
+  matR.emissive = new THREE.Color(0x000000); rEsc.children[0].intensity = 2.2; rSol.intensity = 0.4;
+  rRen.render(rEsc, rCam); c.plano = await aFoto();
+  for (let v = 0; v < posR.count; v++) posR.setY(v, c.v[v] * ALTO_REL); posR.needsUpdate = true; geoR.computeVertexNormals();
+  rEsc.children[0].intensity = 1.25; rSol.intensity = 1.6;
+  rRen.render(rEsc, rCam); c.relieve = await aFoto();
+  tex.dispose();
 }
+geoR.dispose(); matR.dispose(); rRen.dispose();
+
+const pilaEl = $('#pila');
+const poli = base.map(([x, y]) => `${x},${(y * RATIO).toFixed(4)}`).join(' ');
+pilaEl.innerHTML = `<svg class="pila__guias" aria-hidden="true"></svg>` + orden.map((c, i) => `
+  <div class="estrato" data-id="${c.id}" style="--i:${i}">
+    <img class="estrato__plano" src="${c.plano}" alt="" draggable="false">
+    <img class="estrato__relieve" src="${c.relieve}" alt="" draggable="false">
+    <svg class="estrato__contorno" viewBox="0 0 1 ${RATIO.toFixed(4)}" preserveAspectRatio="none" aria-hidden="true"><polygon class="estrato__borde" points="${poli}" vector-effect="non-scaling-stroke"/><polygon class="estrato__zona" points="${poli}"/></svg>
+  </div>`).join('') + `<ol class="pila__rotulos">${orden.map((c) => `<li class="rotulo" data-id="${c.id}"><button type="button"><span class="rotulo__num">${c.n}</span><span class="rotulo__nombre">${c.nombre}</span></button></li>`).join('')}</ol>`;
+const estratos = [...pilaEl.querySelectorAll('.estrato')]; const rotulos = [...pilaEl.querySelectorAll('.rotulo')];
+let pAncho = 0; let pPaso = 0;
+function medirPila() {
+  const vw = document.documentElement.clientWidth; const vh = innerHeight; const movil = vw < 820;
+  pAncho = movil ? vw * 0.52 : Math.min(640, vw * 0.4);
+  const hImg = pAncho * RATIO; const disponible = movil ? Math.max(460, vh * 0.62) : Math.max(560, vh - 200);
+  pPaso = Math.max(12, Math.min(34, (disponible - hImg) / (NC - 1)));
+  const alto = (NC - 1) * pPaso + hImg;
+  pilaEl.style.width = `${pAncho}px`; pilaEl.style.height = `${alto}px`; pilaEl.style.setProperty('--alzado', `${Math.round(hImg * 0.5)}px`); pilaEl.style.setProperty('--paso', pPaso);
+  const topDe = (i) => (NC - 1 - i) * pPaso;
+  estratos.forEach((e, i) => { e.style.top = `${topDe(i)}px`; e.style.width = `${pAncho}px`; e.style.height = `${hImg}px`; e.style.zIndex = i + 1; });
+  const [dx, dy] = base[iDer];
+  rotulos.forEach((r, i) => { r.style.top = `${topDe(i) + dy * hImg}px`; r.style.setProperty('--x', `${dx * pAncho}px`); });
+  // guías verticales en las otras tres esquinas
+  $('.pila__guias').setAttribute('width', pAncho); $('.pila__guias').setAttribute('height', alto);
+  $('.pila__guias').innerHTML = base.filter((_, i) => i !== iDer).map(([x, y]) => `<line x1="${x * pAncho}" x2="${x * pAncho}" y1="${y * hImg - 14}" y2="${topDe(0) + y * hImg + 20}"/>`).join('');
+}
+medirPila(); addEventListener('resize', medirPila);
+let pHover = null; let pScroll = null;
+function estadoPila() {
+  const act = pHover ?? pScroll; const ia = act ? orden.findIndex((c) => c.id === act) : -1;
+  pilaEl.toggleAttribute('data-activo', ia >= 0);
+  estratos.forEach((e, i) => { e.dataset.estado = ia < 0 ? 'reposo' : i === ia ? 'activo' : i > ia ? 'encima' : 'debajo'; });
+  rotulos.forEach((r, i) => { r.dataset.estado = ia < 0 ? 'reposo' : i === ia ? 'activo' : i > ia ? 'encima' : 'atenuado'; });
+}
+estratos.forEach((e) => { const z = e.querySelector('.estrato__zona'); z.addEventListener('pointerenter', () => { pHover = e.dataset.id; estadoPila(); }); z.addEventListener('click', () => abrirFicha(capa[e.dataset.id])); });
+rotulos.forEach((r) => { const b = r.querySelector('button'); b.addEventListener('pointerenter', () => { pHover = r.dataset.id; estadoPila(); }); b.addEventListener('focus', () => { pHover = r.dataset.id; estadoPila(); }); b.addEventListener('blur', () => { pHover = null; estadoPila(); }); b.addEventListener('click', () => abrirFicha(capa[r.dataset.id])); });
+pilaEl.addEventListener('pointerleave', () => { pHover = null; estadoPila(); });
+// el scroll recorre los estratos de abajo arriba mientras la pila está fija
+const secPila = $('#capas');
+function dibujarPila() { return;
+  const r = secPila.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) return;
+  const rango = Math.max(1, r.height - innerHeight); const p = clamp01(-r.top / rango);
+  let id = null; if (!pausado && p > 0.06 && p < 0.97) id = orden[Math.min(NC - 1, Math.floor(((p - 0.06) / 0.91) * NC))].id;
+  if (id !== pScroll) { pScroll = id; estadoPila(); }
+}
+estadoPila();
+requestAnimationFrame(() => pilaEl.classList.add('pila-lista'));
 function abrirFicha(c) {
   const f = raiz.querySelector('#ficha-capa');
   f.innerHTML = `<button class="cerrar" aria-label="Cerrar">✕</button><p class="rotulo">Capa ${c.n} · ${c.grupo}</p><h3>${c.nombre}</h3><p class="desc">${c.d}</p><dl><dt>Unidad</dt><dd>${c.unidad}</dd><dt>Cálculo</dt><dd class="dato">${c.f}</dd><dt>Normalización</dt><dd>lineal p2–p98 sobre el mapa</dd><dt>Fuente</dt><dd>${c.fu}</dd></dl>`;
@@ -165,11 +195,11 @@ function abrirFicha(c) {
   fila.append(orig, cv); f.append(fila);
   const rb = document.createElement('div'); rb.className = 'rampa'; rb.style.cssText = 'position:static;width:100%;margin-top:8px'; rb.innerHTML = `<i style="background:${gradCSS(c.rampa)}"></i><div><span>${c.el[0]}</span><span>${c.el[1]}</span></div>`; f.append(rb);
   const ver = document.createElement('button'); ver.className = 'chip'; ver.style.marginTop = '12px'; ver.textContent = 'Ver en el relieve 3D →';
-  ver.onclick = () => { pintar(c.id, c.id); f.classList.remove('on'); raiz.querySelector('#relieve').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); };
+  ver.onclick = () => { pintar(c.id, c.id); f.classList.remove('on'); $('#capas').classList.remove('abierto'); raiz.querySelector('#relieve').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); };
   f.append(ver);
-  f.classList.add('on'); f.querySelector('.cerrar').onclick = () => f.classList.remove('on');
+  f.classList.add('on'); $('#capas').classList.add('abierto'); f.querySelector('.cerrar').onclick = () => { f.classList.remove('on'); $('#capas').classList.remove('abierto'); };
 }
-const alEsc = (e) => { if (e.key === 'Escape') raiz.querySelector('#ficha-capa').classList.remove('on'); }; addEventListener('keydown', alEsc);
+const alEsc = (e) => { if (e.key === 'Escape') raiz.querySelector('#ficha-capa').classList.remove('on'); $('#capas').classList.remove('abierto'); }; addEventListener('keydown', alEsc);
 
 /* ================= relaciones ================= */
 const TEXTOS_REL = {
@@ -183,6 +213,34 @@ $('#rejilla').innerHTML = D.capas.map((c) => `<div class="mini ${ENMEDIA.has(c.i
 raiz.querySelectorAll('[data-mini]').forEach((el) => { const c = capa[el.dataset.mini]; const cv = document.createElement('canvas'); cv.width = GW; cv.height = GH; const cx = cv.getContext('2d'); cx.drawImage(c.lienzo, 0, 0); el.prepend(cv); el.onclick = () => abrirFicha(c); el.onkeydown = (e) => { if (e.key === 'Enter') abrirFicha(c); }; });
 function modoRel(m) { $('#rejilla').className = `rejilla ${m}`; $('#rel-texto').textContent = TEXTOS_REL[m]; raiz.querySelectorAll('#rel-pestanas button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.modo === m))); }
 raiz.querySelectorAll('#rel-pestanas button').forEach((b) => { b.onclick = () => modoRel(b.dataset.modo); }); modoRel('');
+
+/* ================= genealogía: filamentos de las capas a los índices ================= */
+(() => {
+  const svg = $('#gen-svg'); if (!svg) return;
+  const NS = 'http://www.w3.org/2000/svg'; const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const COLI = { E: '#ff6b4a', V: '#7fd08a', A: '#b9a4ff', P: '#f2cf94', S: '#ff9f80', M: '#8fe7f2', K: '#f7e07a', C: '#ff6b4a', O: '#cfff5e' };
+  const W = 1180, fila = 30, H = Math.max(D.capas.length, 9) * fila + 60; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const xC = 250, xI = 560, xF = 880; const yC = (i) => 40 + i * fila;
+  const nivel1 = ['E', 'V', 'A', 'P', 'M', 'K'], nivel2 = ['S', 'C', 'O'];
+  const pasoI = (H - 80) / (nivel1.length - 1), pasoF = (H - 80) * 0.78 / (nivel2.length - 1);
+  const pos = {}; D.capas.forEach((c, i) => { pos[c.id] = [xC, yC(i)]; });
+  nivel1.forEach((id, i) => { pos[id] = [xI, 40 + i * pasoI]; }); nivel2.forEach((id, i) => { pos[id] = [xF, 40 + i * pasoF]; });
+  const gF = el('g', {}), gN = el('g', {}); svg.append(gF, gN);
+  const fil = [];
+  const curva = (a, b, col, de, a2) => { const [x1, y1] = pos[a], [x2, y2] = pos[b]; const m = (x1 + x2) / 2; const p = el('path', { d: `M${x1 + 6},${y1} C${m},${y1} ${m},${y2} ${x2 - 10},${y2}`, class: 'fil', stroke: col }); gF.append(p); fil.push({ de, a: a2, p }); };
+  for (const id of ORDEN_IND) { const I = IND[id]; (I.usa || []).forEach((c) => curva(c, id, COLI[id], c, id)); (I.de || []).forEach((d) => curva(d, id, COLI[id], d, id)); }
+  // qué toca cada nodo, hacia atrás y hacia delante
+  const nodos = [];
+  D.capas.forEach((c) => { const [x, y] = pos[c.id]; const g = el('g', { class: 'g-nodo', transform: `translate(${x},${y})`, tabindex: 0 }); g.append(el('circle', { r: 4, fill: '#a7b3b8' })); const t = el('text', { x: -14, y: 4, 'text-anchor': 'end' }); t.textContent = `${c.n} · ${c.corto}`; g.append(t); gN.append(g); nodos.push({ id: c.id, g }); });
+  for (const id of ORDEN_IND) { const I = IND[id]; const [x, y] = pos[id]; const g = el('g', { class: 'g-nodo ind', transform: `translate(${x},${y})`, tabindex: 0 }); g.append(el('circle', { r: 9, fill: '#0b0f11', stroke: COLI[id], 'stroke-width': 2 })); const t = el('text', { x: 16, y: 1 }); t.textContent = `${id} · ${I.nombre}`; const f = el('text', { x: 16, y: 15, class: 'f' }); f.textContent = I.formula; g.append(t, f); gN.append(g); nodos.push({ id, g }); }
+  const foco = (id) => { svg.classList.toggle('foco', !!id); if (!id) return;
+    // capa: todo lo que alimenta; índice: solo lo que lo compone
+    const comp = IND[id] ? (() => { const r = new Set([id]); const sub = (n) => fil.filter((f) => f.a === n).forEach((f) => { r.add(f.de); sub(f.de); }); sub(id); return r; })() : (() => { const r = new Set([id]); const sube = (n) => fil.filter((f) => f.de === n).forEach((f) => { r.add(f.a); sube(f.a); }); sube(id); return r; })();
+    fil.forEach((f) => f.p.classList.toggle('on', comp.has(f.de) && comp.has(f.a))); nodos.forEach((n) => n.g.classList.toggle('on', comp.has(n.id))); };
+  nodos.forEach((n) => { n.g.addEventListener('pointerenter', () => foco(n.id)); n.g.addEventListener('pointerleave', () => foco(null)); n.g.addEventListener('focus', () => foco(n.id)); n.g.addEventListener('blur', () => foco(null)); if (capa[n.id]) n.g.addEventListener('click', () => abrirFicha(capa[n.id])); });
+  const sinUso = D.capas.filter((c) => !fil.some((f) => f.de === c.id)).map((c) => c.corto);
+  $('#gen-nota').textContent = `Índices exploratorios con pesos iguales; no son índices validados. Cada índice se reescala 0–1 entre sus percentiles 2 y 98. ⊕ suma sin restar: 1 − ∏(1 − x).${sinUso.length ? ' Capas sin índice: ' + sinUso.join(', ') + '.' : ''}`;
+})();
 
 /* ================= relieve en 3D: «geografías latentes» ================= */
 // la altura sale de una capa y el color de otra: los picos son los valores altos
@@ -232,7 +290,7 @@ function volarA(k) {
   vuelo = { t0: performance.now(), d: 1400, tA: ctrl3d.target.clone(), tB: new THREE.Vector3(x, y * 0.6, z), cA: cam.position.clone(), cB: new THREE.Vector3(x + 1300, y + 1500, z + 1700) };
   ctrl3d.autoRotate = false;
 }
-const MODOS = [['C', 'Convergencia'], ['E', 'Estrés ambiental'], ['S', 'Presión social'], ['M', 'Riesgo de movilidad'], ['V', 'Valor ecológico'], ...D.capas.map((c) => [c.id, c.corto])];
+const MODOS = [...['C', 'O', 'E', 'V', 'A', 'P', 'S', 'M', 'K'].map((id) => [id, IND[id].nombre]), ...D.capas.map((c) => [c.id, c.corto])];
 $('#chips').innerHTML = MODOS.map(([m, t]) => `<button class="chip" data-modo3d="${m}" aria-pressed="false">${IND[m] ? `<b>${m}</b>` : ''}${t}</button>`).join('');
 raiz.querySelectorAll('[data-modo3d]').forEach((b) => { b.onclick = () => pintar(b.dataset.modo3d, $('#ata').checked ? b.dataset.modo3d : alturaActual); });
 $('#sel-altura').innerHTML = MODOS.map(([m]) => `<option value="${m}">${nombreDe(m)}</option>`).join('');
@@ -240,7 +298,7 @@ $('#sel-altura').onchange = (e) => pintar(colorActual, e.target.value);
 $('#relieve-texto').textContent = 'Cada capa del encuadre se vuelve terreno: sube donde su valor es mayor. Elija una capa para vestir la superficie con sus valores, cambie la capa que da la altura para cruzarlas y haga clic en un pico para acercarse.';
 pintar('C', 'C');
 // pasar el cursor: valor de altura y color en ese punto
-const tip = $('#tip-relieve'); const rayR = new THREE.Raycaster(); rayR.params.Points.threshold = 40;
+const ptr = new THREE.Vector2(); const tip = $('#tip-relieve'); const rayR = new THREE.Raycaster(); rayR.params.Points.threshold = 40;
 renderer.domElement.addEventListener('pointermove', (e) => {
   const r = renderer.domElement.getBoundingClientRect(); ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   rayR.setFromCamera(ptr, cam); const hit = rayR.intersectObject(puntos)[0];
@@ -268,5 +326,5 @@ let vivo = true;
 (function bucle(t) { if (!vivo) return; requestAnimationFrame(bucle); if (document.hidden) return; dibujarPila(); dibujar3d(t); })(performance.now());
 raiz.querySelectorAll('section').forEach((s) => { s.querySelectorAll(':scope h2, :scope .capas-cab p, :scope .rel-cuerpo p, :scope .rel-izq > p, :scope .chips, :scope .mini, :scope .pila li').forEach((e, q) => { e.classList.add('rv'); e.style.transitionDelay = `${Math.min(q, 14) * 0.06}s`; }); });
 const pausa = $('#pausa'); if (pausa) { pausa.setAttribute('aria-pressed', String(pausado)); pausa.textContent = pausado ? 'Reanudar movimiento' : 'Pausar movimiento'; pausa.onclick = () => { pausado = !pausado; ctrl3d.autoRotate = !pausado; pausa.setAttribute('aria-pressed', String(pausado)); pausa.textContent = pausado ? 'Reanudar movimiento' : 'Pausar movimiento'; }; }
-return { pintar, abrirFicha: (id) => abrirFicha(capa[id]), parar: () => { vivo = false; obsEntrada.disconnect(); removeEventListener('keydown', alEsc); ctrl3d.dispose(); pRen.dispose(); renderer.dispose(); } };
+return { pintar, abrirFicha: (id) => abrirFicha(capa[id]), parar: () => { vivo = false; obsEntrada.disconnect(); removeEventListener('keydown', alEsc); ctrl3d.dispose(); renderer.dispose(); } };
 }
